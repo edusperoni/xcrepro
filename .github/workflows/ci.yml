@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: Test + fixture reproducibility
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run check:gen
+      - run: npm test
+      - run: npm run build
+      # One slice is enough to catch regressions; the relocated rebuild is the actual check.
+      - name: Verify fixture builds reproducibly
+        run: node dist/cli.js verify --project fixtures/Sample/Sample.xcodeproj --scheme Sample --platforms ios -o build/fixture --manifest build/fixture/manifest.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: fixture-xcframework
+          path: build/fixture
+          if-no-files-found: ignore
+
+  package:
+    name: Package (npm tarball, binaries, pkg.pr.new)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - uses: oven-sh/setup-bun@v2
+      - run: npm ci
+      - name: npm pack
+        run: |
+          mkdir -p build/npm
+          npm pack --pack-destination build/npm
+      - uses: actions/upload-artifact@v7
+        with:
+          name: npm-package
+          path: build/npm/*.tgz
+      - name: Compile standalone binaries
+        run: npm run compile
+      - uses: actions/upload-artifact@v7
+        with:
+          name: binaries
+          path: dist-bin/
+      - name: Publish preview to pkg.pr.new
+        run: npx pkg-pr-new publish --bin --commentWithDev --no-template

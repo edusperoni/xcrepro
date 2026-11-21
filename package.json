@@ -1,0 +1,50 @@
+{
+  "name": "xcrepro",
+  "version": "0.1.0",
+  "description": "Reproducible, path-independent XCFramework builds: same bytes on every machine and in CI.",
+  "keywords": [
+    "xcframework",
+    "reproducible-builds",
+    "deterministic",
+    "xcodebuild",
+    "ios",
+    "swift-package-manager",
+    "binaryTarget",
+    "nativescript",
+    "react-native"
+  ],
+  "license": "MIT",
+  "author": "Eduardo Speroni",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/edusperoni/xcrepro.git"
+  },
+  "homepage": "https://github.com/edusperoni/xcrepro#readme",
+  "bugs": "https://github.com/edusperoni/xcrepro/issues",
+  "type": "module",
+  "bin": {
+    "xcrepro": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "xcconfig"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test 'test/**/*.test.ts'",
+    "gen": "node scripts/gen.ts",
+    "check:gen": "node scripts/gen.ts --check",
+    "compile": "node scripts/compile.ts",
+    "version": "node scripts/gen.ts && git add src/version.ts xcconfig",
+    "prepack": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "pkg-pr-new": "^0.0.94",
+    "typescript": "^7.0.2"
+  }
+}
