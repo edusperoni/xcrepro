@@ -28,8 +28,9 @@ jobs:
       - run: npm test
       - run: npm run build
       # One slice is enough to catch regressions; the relocated rebuild is the actual check.
+      # ios-sim covers the most: a fat binary whose arm64 slice is linker-signed.
       - name: Verify fixture builds reproducibly
-        run: node dist/cli.js verify --project fixtures/Sample/Sample.xcodeproj --scheme Sample --platforms ios -o build/fixture --manifest build/fixture/manifest.json
+        run: node dist/cli.js verify --project fixtures/Sample/Sample.xcodeproj --scheme Sample --platforms ios-sim -o build/fixture --manifest build/fixture/manifest.json
       - uses: actions/upload-artifact@v7
         if: always()
         with:

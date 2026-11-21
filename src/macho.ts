@@ -5,6 +5,9 @@ const FAT_MAGIC_64 = 0xcafebabf;
 const MH_MAGIC = 0xfeedface;
 const MH_MAGIC_64 = 0xfeedfacf;
 const LC_UUID = 0x1b;
+const LC_CODE_SIGNATURE = 0x1d;
+const LC_SEGMENT = 0x1;
+const LC_SEGMENT_64 = 0x19;
 export const MH_DSYM = 0xa;
 
 export interface MachOSlice {
@@ -15,6 +18,13 @@ export interface MachOSlice {
 	filetype: number;
 	/** Absolute file offset of the 16 LC_UUID bytes, if the slice has one. */
 	uuidOffset?: number;
+	/** Absolute file range of the embedded code signature, if any. */
+	codeSignature?: { offset: number; size: number };
+	/**
+	 * Absolute [offset, length] ranges of header fields whose value depends on the signature's
+	 * size: LC_CODE_SIGNATURE's datasize and __LINKEDIT's vmsize/filesize.
+	 */
+	signatureSizeFields: Array<[offset: number, length: number]>;
 }
 
 /** Returns the slices of a thin or fat Mach-O file, or undefined if `buf` isn't one. */
@@ -54,27 +64,39 @@ function parseThin(buf: Buffer, offset: number, size: number): MachOSlice | unde
 		cputype: buf.readInt32LE(offset + 4),
 		cpusubtype: buf.readInt32LE(offset + 8),
 		filetype: buf.readUInt32LE(offset + 12),
+		signatureSizeFields: [],
 	};
 	const ncmds = buf.readUInt32LE(offset + 16);
 	let at = offset + headerSize;
 	for (let i = 0; i < ncmds && at + 8 <= offset + size; i++) {
 		const cmd = buf.readUInt32LE(at);
 		const cmdsize = buf.readUInt32LE(at + 4);
-		if (cmd === LC_UUID && cmdsize >= 24) {
-			slice.uuidOffset = at + 8;
-			break;
+		if (cmd === LC_UUID && cmdsize >= 24) slice.uuidOffset = at + 8;
+		if (cmd === LC_CODE_SIGNATURE && cmdsize >= 16) {
+			slice.codeSignature = { offset: offset + buf.readUInt32LE(at + 8), size: buf.readUInt32LE(at + 12) };
+			slice.signatureSizeFields.push([at + 12, 4]);
 		}
+		const segname = () => buf.toString('latin1', at + 8, at + 24).replace(/\0+$/, '');
+		if (cmd === LC_SEGMENT_64 && cmdsize >= 72 && segname() === '__LINKEDIT') slice.signatureSizeFields.push([at + 32, 8], [at + 48, 8]);
+		if (cmd === LC_SEGMENT && cmdsize >= 56 && segname() === '__LINKEDIT') slice.signatureSizeFields.push([at + 28, 4], [at + 36, 4]);
 		if (cmdsize < 8) break;
 		at += cmdsize;
 	}
 	return slice;
 }
 
-/** A UUID derived from the slice's bytes with its own UUID zeroed, so identical content gets an identical UUID. */
+/**
+ * A UUID derived from the slice's bytes, so identical content gets an identical UUID. Excluded:
+ * the UUID itself, and the code signature, which covers the old UUID and whose size changes when
+ * re-signed (so the size fields that depend on it are excluded too).
+ */
 export function contentUuid(buf: Buffer, slice: MachOSlice): Buffer {
 	if (slice.uuidOffset === undefined) throw new Error('slice has no LC_UUID');
-	const copy = Buffer.from(buf.subarray(slice.offset, slice.offset + slice.size));
-	copy.fill(0, slice.uuidOffset - slice.offset, slice.uuidOffset - slice.offset + 16);
+	const end = slice.codeSignature ? Math.min(slice.codeSignature.offset, slice.offset + slice.size) : slice.offset + slice.size;
+	const copy = Buffer.from(buf.subarray(slice.offset, end));
+	const zero = (at: number, length: number) => copy.fill(0, at - slice.offset, at - slice.offset + length);
+	zero(slice.uuidOffset, 16);
+	if (slice.codeSignature) for (const [at, length] of slice.signatureSizeFields) zero(at, length);
 	const uuid = createHash('sha256').update(copy).digest().subarray(0, 16);
 	uuid[6] = (uuid[6]! & 0x0f) | 0x50; // RFC 4122 version 5 (name-based, SHA)
 	uuid[8] = (uuid[8]! & 0x3f) | 0x80; // RFC 4122 variant
@@ -113,4 +135,23 @@ export function remapDsymUuids(buf: Buffer, mapping: ReadonlyMap<string, Buffer>
 		else unmatched.push(old);
 	}
 	return unmatched;
+}
+
+/** codesign/lipo architecture name for a slice. */
+export function archName(slice: MachOSlice): string {
+	const sub = slice.cpusubtype & 0x00ffffff;
+	switch (slice.cputype) {
+		case 0x0100000c:
+			return sub === 2 ? 'arm64e' : 'arm64';
+		case 0x0200000c:
+			return 'arm64_32';
+		case 0x01000007:
+			return 'x86_64';
+		case 0x7:
+			return 'i386';
+		case 0xc:
+			return sub === 11 ? 'armv7s' : sub === 12 ? 'armv7k' : 'armv7';
+		default:
+			return `cputype-${slice.cputype}`;
+	}
 }

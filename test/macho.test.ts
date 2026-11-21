@@ -100,3 +100,21 @@ test('reports dSYM slices with no matching binary', () => {
 	const dsym = thin({ cputype: CPU_ARM64, filetype: MH_DSYM, uuid: 0xcc, payload: 'dwarf' });
 	assert.deepEqual(remapDsymUuids(dsym, new Map()), ['cc'.repeat(16)]);
 });
+
+test('the code signature is excluded from the UUID (it covers the old UUID)', () => {
+	const withSig = (sigFill: number) => {
+		const b = thin({ cputype: CPU_ARM64, filetype: MH_DYLIB, uuid: 0x44, payload: 'code' + 'S'.repeat(16) });
+		// Turn the unrelated load command into LC_CODE_SIGNATURE covering the last 16 bytes.
+		b.writeUInt32LE(0x1d, 56);
+		b.writeUInt32LE(b.length - 16, 64);
+		b.writeUInt32LE(16, 68);
+		b.fill(sigFill, b.length - 16);
+		return b;
+	};
+	const a = withSig(0xaa);
+	const b = withSig(0xbb);
+	assert.deepEqual(parseMachO(a)![0]!.codeSignature, { offset: a.length - 16, size: 16 });
+	normalizeBinaryUuids(a);
+	normalizeBinaryUuids(b);
+	assert.equal(uuidOf(a), uuidOf(b));
+});

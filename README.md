@@ -28,9 +28,9 @@ So every rebuild produces a diff, the output exposes your filesystem, and you ca
 npm i -D xcrepro           # or run it ad hoc: npx xcrepro ...
 ```
 
-Without Node, download a standalone binary (`xcrepro-darwin-arm64` / `xcrepro-darwin-x64`) from the [releases](https://github.com/edusperoni/xcrepro/releases) and check it against `SHA256SUMS`.
+Without Node, download a standalone binary (`xcrepro-darwin-arm64` / `xcrepro-darwin-x64`) from the [releases](https://github.com/edusperoni/xcrepro/releases), check it against `SHA256SUMS`, and `chmod +x` it.
 
-Previews of every PR and commit on `main` are published by [pkg.pr.new](https://pkg.pr.new). The bot comment on each PR has the URL, e.g. `npx https://pkg.pr.new/xcrepro@<pr-or-sha>`. Each CI run also uploads the `npm pack` tarball and the binaries as workflow artifacts.
+Previews of every PR and commit on `main` are published by [pkg.pr.new](https://pkg.pr.new). The bot comment on each PR has the URL, e.g. `npx https://pkg.pr.new/edusperoni/xcrepro@<pr-or-sha>`. Each CI run also uploads the `npm pack` tarball and the binaries as workflow artifacts.
 
 ## Usage
 
@@ -79,9 +79,11 @@ If you drive `xcodebuild` yourself:
 | DerivedData in your home directory | `-derivedDataPath` inside the source root, so it's remapped too |
 | Swift `#file` is an absolute path | `SWIFT_UPCOMING_FEATURE_CONCISE_MAGIC_FILE`: `#file` becomes `Module/File.swift` (`--no-concise-magic-file` to opt out) |
 | Search paths serialized in `.swiftmodule` and dSYM | `SWIFT_SERIALIZE_DEBUGGING_OPTIONS=NO` |
+| Dependency module paths (incl. the Xcode install) serialized into `.swiftmodule` by explicit-module builds, with no remapping | `SWIFT_ENABLE_EXPLICIT_MODULES=NO`: implicit modules record none (compiles are somewhat slower) |
 | DWARF references to clang module caches (`.pcm`) | `-no-clang-module-breadcrumbs` (Swift), `CLANG_ENABLE_MODULE_DEBUGGING=NO` (clang) |
 | Linker debug map with absolute paths | Strip debug symbols after the dSYM is made (`STRIP_STYLE=debugging`, as `xcodebuild archive` does) |
-| `LC_UUID` hashed from that debug map | Re-derive each slice's UUID from its stripped bytes and apply it to the matching dSYM slice |
+| `LC_UUID` hashed from that debug map | Re-derive each slice's UUID from its stripped bytes (excluding the code signature) and apply it to the matching dSYM slice |
+| Linker ad-hoc signature (arm64) covers the old UUID | Re-sign the slices that were signed, ad hoc with `linker-signed`, as the linker does |
 | `.swiftsourceinfo` with absolute paths | Remove `*.swiftmodule/Project/`, which the compiler sets apart for exactly this |
 | Absolute path in dSYM `Relocations/*.yml` | Rewrite it to the binary's path inside the xcframework |
 | `Info.plist` library order | Sort, then serialize with `plutil` to keep Apple's exact formatting |

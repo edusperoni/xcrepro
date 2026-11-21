@@ -71,7 +71,7 @@ export function buildSettings(opts: SettingsOptions): string[] {
 		'SWIFT_SERIALIZE_DEBUGGING_OPTIONS=NO',
 		// Explicit-module builds serialize the absolute path of every dependency module (e.g. the
 		// SDK's prebuilt .swiftmodules inside the Xcode install) into the .swiftmodule, with no
-		// prefix map applied (Swift 6.3 / Xcode 26.6). Implicit modules record none.
+		// prefix map applied (seen with Xcode 26.6). Implicit modules record none.
 		'SWIFT_ENABLE_EXPLICIT_MODULES=NO',
 		`OTHER_CFLAGS=$(inherited) ${cflags.join(' ')}`,
 		`OTHER_SWIFT_FLAGS=$(inherited) ${swiftFlags.join(' ')}`,

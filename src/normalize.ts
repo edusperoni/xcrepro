@@ -1,9 +1,9 @@
-import { closeSync, existsSync, mkdtempSync, openSync, readFileSync, readSync, rmSync, writeFileSync } from 'node:fs';
+import { closeSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, readSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { capture, XcreproError } from './exec.ts';
 import { walk } from './fsutil.ts';
-import { formatUuid, normalizeBinaryUuids, parseMachO, remapDsymUuids } from './macho.ts';
+import { archName, formatUuid, normalizeBinaryUuids, parseMachO, remapDsymUuids } from './macho.ts';
 
 export interface NormalizeReport {
 	uuids: Array<{ file: string; from: string; to: string }>;
@@ -76,7 +76,10 @@ function normalizeUuids(root: string, report: NormalizeReport): void {
 			mapping.set(to.toString('hex'), to);
 			if (from !== to.toString('hex')) report.uuids.push({ file: e.rel, from: formatUuid(Buffer.from(from, 'hex')), to: formatUuid(to) });
 		}
-		if (!before.equals(buf)) writeFileSync(e.abs, buf);
+		if (!before.equals(buf)) {
+			writeFileSync(e.abs, buf);
+			resign(e.abs, slices.filter((s) => s.codeSignature && s.filetype !== 0xa).map(archName), buf.readUInt32BE(0) === 0xcafebabe || buf.readUInt32BE(0) === 0xcafebabf);
+		}
 	}
 	for (const e of dsyms) {
 		const buf = readFileSync(e.abs);
@@ -84,6 +87,37 @@ function normalizeUuids(root: string, report: NormalizeReport): void {
 		const unmatched = remapDsymUuids(buf, mapping);
 		for (const u of unmatched) report.warnings.push(`${e.rel}: dSYM UUID ${formatUuid(Buffer.from(u, 'hex'))} matches no binary in the xcframework`);
 		if (!before.equals(buf)) writeFileSync(e.abs, buf);
+	}
+}
+
+/**
+ * arm64 slices carry an ad-hoc signature from the linker that covers LC_UUID, so they must be
+ * re-signed after the UUID changes. Sign a copy outside the bundle: pointed at a bundle's main
+ * executable, codesign seals the whole bundle (`_CodeSignature/`), which the linker never does.
+ * In fat files only the slices that were signed are re-signed (`codesign --architecture` fails
+ * on fat files), so unsigned slices keep their bytes and the step stays idempotent.
+ */
+function resign(file: string, archs: string[], fat: boolean): void {
+	if (archs.length === 0) return;
+	const dir = mkdtempSync(join(tmpdir(), 'xcrepro-sign-'));
+	const sign = (path: string) => capture('codesign', ['--force', '--sign', '-', '--options', 'linker-signed', '--identifier', basename(file), path]);
+	try {
+		const copy = join(dir, basename(file));
+		copyFileSync(file, copy);
+		if (!fat) sign(copy);
+		else {
+			for (const arch of archs) {
+				const thin = join(dir, `${arch}.slice`, basename(file));
+				mkdirSync(dirname(thin));
+				capture('lipo', [copy, '-thin', arch, '-output', thin]);
+				sign(thin);
+				capture('lipo', [copy, '-replace', arch, thin, '-output', copy]);
+			}
+		}
+		for (const arch of archs) capture('codesign', ['--verify', '--strict', '--architecture', arch, copy]);
+		copyFileSync(copy, file);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
 	}
 }
 
