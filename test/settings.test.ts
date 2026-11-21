@@ -24,8 +24,10 @@ test('remaps every root spelling and a non-default Xcode, for both clang and swi
 });
 
 test('the canonical Xcode location is not remapped onto itself', () => {
+	// On CI images /Applications/Xcode.app is a symlink to Xcode_<version>.app; that realpath
+	// must still be remapped, so only assert the identity mapping is absent.
 	const s = buildSettings({ ...base, root: '/r', developerDir: CANONICAL_DEVELOPER_DIR });
-	assert.ok(!setting(s, 'OTHER_CFLAGS')!.includes('Xcode.app'));
+	assert.ok(!setting(s, 'OTHER_CFLAGS')!.includes(`-ffile-prefix-map=${CANONICAL_DEVELOPER_DIR}=`));
 });
 
 test('quotes paths with spaces so xcodebuild keeps them as one flag', () => {
