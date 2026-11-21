@@ -24,4 +24,4 @@ DEPLOYMENT_POSTPROCESSING = YES
 STRIP_INSTALLED_PRODUCT = YES
 STRIP_STYLE = debugging
 OTHER_CFLAGS = $(inherited) -ffile-prefix-map=$(DEVELOPER_DIR)=/Applications/Xcode.app/Contents/Developer -ffile-prefix-map=$(XCREPRO_ROOT)=.
-OTHER_SWIFT_FLAGS = $(inherited) -file-prefix-map $(DEVELOPER_DIR)=/Applications/Xcode.app/Contents/Developer -file-prefix-map $(XCREPRO_ROOT)=. -Xfrontend -no-clang-module-breadcrumbs
+OTHER_SWIFT_FLAGS = $(inherited) -file-prefix-map $(DEVELOPER_DIR)=/Applications/Xcode.app/Contents/Developer -file-prefix-map $(XCREPRO_ROOT)=. -Xfrontend -no-clang-module-breadcrumbs -prefix-serialized-debugging-options

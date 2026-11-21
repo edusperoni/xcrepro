@@ -57,6 +57,10 @@ export function buildSettings(opts: SettingsOptions): string[] {
 	// Swift otherwise emits DWARF skeleton units pointing at clang module caches (.pcm) inside
 	// DerivedData; those paths are machine-specific and dsymutil can't follow them once remapped.
 	swiftFlags.push('-Xfrontend', '-no-clang-module-breadcrumbs');
+	// The module AST embedded in the dSYM (__swift_ast) records dependency paths, e.g. the SDK's
+	// prebuilt .swiftmodule files under the Xcode install, even with serialization of debugging
+	// options off. This applies the prefix maps to them.
+	swiftFlags.push('-prefix-serialized-debugging-options');
 
 	const settings = [
 		'SKIP_INSTALL=NO',
@@ -111,7 +115,7 @@ export function xcconfig(): string {
 		'',
 		...s.map((line) => line.replace('=', ' = ')),
 		'OTHER_CFLAGS = $(inherited) -ffile-prefix-map=$(DEVELOPER_DIR)=' + CANONICAL_DEVELOPER_DIR + ' -ffile-prefix-map=$(XCREPRO_ROOT)=.',
-		'OTHER_SWIFT_FLAGS = $(inherited) -file-prefix-map $(DEVELOPER_DIR)=' + CANONICAL_DEVELOPER_DIR + ' -file-prefix-map $(XCREPRO_ROOT)=. -Xfrontend -no-clang-module-breadcrumbs',
+		'OTHER_SWIFT_FLAGS = $(inherited) -file-prefix-map $(DEVELOPER_DIR)=' + CANONICAL_DEVELOPER_DIR + ' -file-prefix-map $(XCREPRO_ROOT)=. -Xfrontend -no-clang-module-breadcrumbs -prefix-serialized-debugging-options',
 		'',
 	].join('\n');
 }
