@@ -1,6 +1,6 @@
 {
   "name": "xcrepro",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Reproducible, path-independent XCFramework builds: same bytes on every machine and in CI.",
   "keywords": [
     "xcframework",
