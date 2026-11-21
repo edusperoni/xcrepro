@@ -18,10 +18,11 @@ GCC_GENERATE_DEBUGGING_SYMBOLS = YES
 DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
 CLANG_ENABLE_MODULE_DEBUGGING = NO
 SWIFT_SERIALIZE_DEBUGGING_OPTIONS = NO
+SWIFT_ENABLE_EXPLICIT_MODULES = NO
 BUILD_LIBRARY_FOR_DISTRIBUTION = YES
 SWIFT_UPCOMING_FEATURE_CONCISE_MAGIC_FILE = YES
 DEPLOYMENT_POSTPROCESSING = YES
 STRIP_INSTALLED_PRODUCT = YES
 STRIP_STYLE = debugging
 OTHER_CFLAGS = $(inherited) -ffile-prefix-map=$(DEVELOPER_DIR)=/Applications/Xcode.app/Contents/Developer -ffile-prefix-map=$(XCREPRO_ROOT)=.
-OTHER_SWIFT_FLAGS = $(inherited) -file-prefix-map $(DEVELOPER_DIR)=/Applications/Xcode.app/Contents/Developer -file-prefix-map $(XCREPRO_ROOT)=. -Xfrontend -no-clang-module-breadcrumbs -prefix-serialized-debugging-options
+OTHER_SWIFT_FLAGS = $(inherited) -file-prefix-map $(DEVELOPER_DIR)=/Applications/Xcode.app/Contents/Developer -file-prefix-map $(XCREPRO_ROOT)=. -Xfrontend -no-clang-module-breadcrumbs

@@ -57,10 +57,6 @@ export function buildSettings(opts: SettingsOptions): string[] {
 	// Swift otherwise emits DWARF skeleton units pointing at clang module caches (.pcm) inside
 	// DerivedData; those paths are machine-specific and dsymutil can't follow them once remapped.
 	swiftFlags.push('-Xfrontend', '-no-clang-module-breadcrumbs');
-	// The module AST embedded in the dSYM (__swift_ast) records dependency paths, e.g. the SDK's
-	// prebuilt .swiftmodule files under the Xcode install, even with serialization of debugging
-	// options off. This applies the prefix maps to them.
-	swiftFlags.push('-prefix-serialized-debugging-options');
 
 	const settings = [
 		'SKIP_INSTALL=NO',
@@ -73,6 +69,10 @@ export function buildSettings(opts: SettingsOptions): string[] {
 		'CLANG_ENABLE_MODULE_DEBUGGING=NO',
 		// The .swiftmodule (and the AST copy in the dSYM) otherwise embeds every -I/-F/VFS path.
 		'SWIFT_SERIALIZE_DEBUGGING_OPTIONS=NO',
+		// Explicit-module builds serialize the absolute path of every dependency module (e.g. the
+		// SDK's prebuilt .swiftmodules inside the Xcode install) into the .swiftmodule, with no
+		// prefix map applied (Swift 6.3 / Xcode 26.6). Implicit modules record none.
+		'SWIFT_ENABLE_EXPLICIT_MODULES=NO',
 		`OTHER_CFLAGS=$(inherited) ${cflags.join(' ')}`,
 		`OTHER_SWIFT_FLAGS=$(inherited) ${swiftFlags.join(' ')}`,
 	];
@@ -115,7 +115,7 @@ export function xcconfig(): string {
 		'',
 		...s.map((line) => line.replace('=', ' = ')),
 		'OTHER_CFLAGS = $(inherited) -ffile-prefix-map=$(DEVELOPER_DIR)=' + CANONICAL_DEVELOPER_DIR + ' -ffile-prefix-map=$(XCREPRO_ROOT)=.',
-		'OTHER_SWIFT_FLAGS = $(inherited) -file-prefix-map $(DEVELOPER_DIR)=' + CANONICAL_DEVELOPER_DIR + ' -file-prefix-map $(XCREPRO_ROOT)=. -Xfrontend -no-clang-module-breadcrumbs -prefix-serialized-debugging-options',
+		'OTHER_SWIFT_FLAGS = $(inherited) -file-prefix-map $(DEVELOPER_DIR)=' + CANONICAL_DEVELOPER_DIR + ' -file-prefix-map $(XCREPRO_ROOT)=. -Xfrontend -no-clang-module-breadcrumbs',
 		'',
 	].join('\n');
 }
