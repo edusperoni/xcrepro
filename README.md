@@ -109,9 +109,13 @@ npm run compile          # standalone binaries via Bun, into dist-bin/
 
 `src/version.ts` and `xcconfig/reproducible.xcconfig` are generated (`npm run gen`); CI fails if they're stale.
 
+### Commits
+
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org) (`feat:`, `fix:`, `docs:`, `ci:`, ...; `!` or a `BREAKING CHANGE:` footer for breaking changes). CI checks every commit in a PR with commitlint. `CHANGELOG.md` is generated from them, so write subjects for users.
+
 ### Releasing
 
-`npm version <patch|minor|major|prerelease>` regenerates the derived files and tags. Then push with `git push --follow-tags`. The `Release` workflow publishes to npm via trusted publishing (OIDC, with provenance) and attaches the binaries to a GitHub release. Prerelease versions (`1.2.0-beta.0`) go to the `next` dist-tag.
+`npm version <patch|minor|major|prerelease>` regenerates the derived files and `CHANGELOG.md` (with [git-cliff](https://git-cliff.org)), commits, and tags. Then push with `git push --follow-tags`. The `Release` workflow fails if `CHANGELOG.md` has no entry for the version. Otherwise it publishes to npm via trusted publishing (OIDC, with provenance) and creates a GitHub release with that entry as its notes and the binaries attached. Prerelease versions (`1.2.0-beta.0`) go to the `next` dist-tag.
 
 ## License
 

@@ -39,11 +39,16 @@
     "gen": "node scripts/gen.ts",
     "check:gen": "node scripts/gen.ts --check",
     "compile": "node scripts/compile.ts",
-    "version": "node scripts/gen.ts && git add src/version.ts xcconfig",
-    "prepack": "npm run build"
+    "version": "node scripts/gen.ts && node scripts/changelog.ts && git add src/version.ts xcconfig CHANGELOG.md",
+    "prepack": "npm run build",
+    "changelog": "node scripts/changelog.ts",
+    "release-notes": "node scripts/release-notes.ts"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
     "@types/node": "^24.19.2",
+    "git-cliff": "^2.14.2",
     "pkg-pr-new": "^0.0.94",
     "typescript": "^7.0.2"
   }
