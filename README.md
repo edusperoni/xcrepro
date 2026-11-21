@@ -41,6 +41,7 @@ xcrepro normalize <xcframework>       Post-process an existing .xcframework in p
 xcrepro scan      <path> [--root dir] Report machine-specific paths in build output
 xcrepro hash      <path>              Print the content hash of a file or directory
 xcrepro xcconfig                      Print the build settings as an .xcconfig
+xcrepro state write|check|is-current  Track whether committed artifacts match their sources
 ```
 
 Options can live in `xcrepro.config.json` (paths are relative to the file):
@@ -69,6 +70,32 @@ If you drive `xcodebuild` yourself:
 1. Pass `-xcconfig node_modules/xcrepro/xcconfig/reproducible.xcconfig XCREPRO_ROOT=<root>` and `-derivedDataPath <inside root>`, with `ZERO_AR_DATE=1` in the environment.
 2. Run `xcrepro normalize <xcframework>` after `-create-xcframework`.
 3. Run `xcrepro scan <xcframework> --root <root>` to check the result.
+
+## Build state: is the committed artifact stale?
+
+Projects that commit prebuilt binaries (an `.xcframework`, an Android `.aar`, ...) need to know whether the committed artifact still matches its sources, without rebuilding. A rebuild can't settle that anyway: native output can differ between toolchains. Instead, `xcrepro state` records a hash of each target's **source inputs** next to a hash of its **artifact**:
+
+```json
+{
+  "state": {
+    "file": "native-build-state.json",
+    "targets": {
+      "ios": { "sources": ["ios/build.sh", "ios/MyLib"], "artifact": "platforms/ios/MyLib.xcframework" },
+      "android": { "sources": ["android/build.gradle", "android/mylib"], "artifact": "platforms/android/mylib.aar" }
+    }
+  }
+}
+```
+
+```sh
+xcrepro state write [target...]     # after building: record hashes (commit the file with the artifacts)
+xcrepro state check [target...]     # CI: exit 1 if any artifact is out of sync with its sources
+xcrepro state is-current ios        # build scripts: exit 0 if the build can be skipped
+```
+
+`check` says why a target is out of sync: its sources changed, its artifact is missing, or the artifact doesn't match the recorded hash (it was edited, or rebuilt without `state write`). Targets can be any platform. Paths are relative to the config file; `base` (default: the config file's directory) is what source paths are recorded relative to.
+
+Files under `build`, `dist`, `.gradle`, `.kotlin`, `.idea`, `xcuserdata`, `DerivedData`, `bin`, `.settings`, `.project` and `.DS_Store` don't count as sources; override with `"ignore": [...]`. The state file uses the same format as NativeScript core's `tools/native-state.mjs`, so existing `native-build-state.json` files work as they are.
 
 ## What it does
 
